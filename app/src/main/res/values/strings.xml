@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">TmobileTest</string>
+    <string name="test_large_text">
+        This is a really large description, so it will have a really large content description and stuff, but really large
+    </string>
+    <string name="image_description">Some image</string>
+</resources>
