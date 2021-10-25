@@ -1,1 +1,3 @@
 # compose_samples
+
+Ideally to keep track of Compose exercise and practices...
