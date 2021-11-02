@@ -1,16 +1,17 @@
 package com.example.tmobiletest
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.ExperimentalAnimationApi
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyListState
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedTextField
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -37,6 +38,8 @@ import com.example.tmobiletest.repository.UIState
 import com.example.tmobiletest.ui.theme.TmobileTestTheme
 import com.example.tmobiletest.viewmodel.CardViewModel
 
+private const val TAG = "MainActivity"
+
 class MainActivity : ComponentActivity() {
 
     private lateinit var viewModel: CardViewModel
@@ -51,55 +54,67 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    @ExperimentalAnimationApi
+    @ExperimentalUnitApi
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
             TmobileTestTheme {
                 // A surface container using the 'background' color from the theme
                 Surface(color = MaterialTheme.colors.background) {
-                    Greeting("Android")
                     viewModel = viewModel(this, factory = viewModelFactory)
+                    CardState(cardViewModel = viewModel)
                 }
             }
         }
     }
 }
 
+@ExperimentalAnimationApi
+@ExperimentalUnitApi
 @Composable
 fun CardState(cardViewModel: CardViewModel) {
     val uiState: UIState? by cardViewModel.cards.observeAsState()
-
-}
-
-@Composable
-fun SomeState(): LazyListState {
-    return LazyListState(0, 0)
+    uiState?.let {
+        Log.d(TAG, "CardState: ${uiState}")
+        when (it) {
+            is UIState.Response -> ListCards(cardState = it.data.page.cards)
+            is UIState.Error -> CardError()
+            is UIState.Loading -> CardLoading(isLoading = it.isLoading)
+        }
+    }
 }
 
 @ExperimentalUnitApi
 @Composable
-fun ListCards(cardState: PageResponse) {
-    val ss = SomeState()
-    LazyColumn {
+fun ListCards(cardState: List<CardsResponse>) {
+    LazyColumn(
+        state = rememberLazyListState(),
+        modifier =Modifier.padding(4.dp)
+    ) {
+
         items(
-            count = cardState.cards.size,
-            key = null
+            count = cardState.size
         ) { index ->
-            when (cardState.cards[index].card_type) {
-                CardTypes.TEXT.name -> {
-                    ViewCardTitle(cardTitle = cardState.cards[index].card.title!!)
-                }
-                CardTypes.IMAGE_TITLE.name -> {
-                    ViewCardTitleDescription(
-                        cardTitle = cardState.cards[index].card.title!!,
-                        cardDescription = cardState.cards[index].card.description!!
+            when (cardState[index].card_type) {
+                CardTypes.TEXT.value -> {
+                    ViewCardTitle(
+                        cardTitle = cardState[index].card.value!!,
+                        cardAttribute = cardState[index].card.attributes!!
                     )
                 }
-                CardTypes.TITLE_DESCRIPTION.name -> {
+                CardTypes.TITLE_DESCRIPTION.value -> {
+                    ViewCardTitleDescription(
+                        cardTitle = cardState[index].card.title!!,
+                        cardDescription = cardState[index].card.description!!
+                    )
+                }
+                CardTypes.IMAGE_TITLE.value -> {
+                    Log.d(TAG, "ListCards: ${cardState[index].card}")
                     CardTitleDescriptionImage(
-                        cardImage = cardState.cards[index].card.image!!,
-                        cardTitle = cardState.cards[index].card.title!!,
-                        cardDescription = cardState.cards[index].card.description!!
+                        cardImage = cardState[index].card.image!!,
+                        cardTitle = cardState[index].card.title!!,
+                        cardDescription = cardState[index].card.description!!
                     )
                 }
             }
@@ -109,20 +124,22 @@ fun ListCards(cardState: PageResponse) {
 
 @ExperimentalUnitApi
 @Composable
-fun ViewCardTitle(cardTitle: CardTitle) {
-    val color: Int = android.graphics.Color.parseColor(cardTitle.attributes?.text_color)
-    Box {
+fun ViewCardTitle(cardTitle: String, cardAttribute: CardAttribute) {
+    val color: Int = android.graphics.Color.parseColor(cardAttribute?.text_color)
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        elevation = 15.dp
+    ) {
         Text(
-            text = cardTitle.value,
+            text = cardTitle,
             color = Color(color),
-            fontSize = cardTitle.attributes?.font?.size?.sp ?: 12.sp
+            fontSize = cardAttribute?.font?.size?.sp ?: 12.sp
         )
     }
 }
 
 @Composable
 fun ViewCardTitleDescription(cardTitle: CardTitle, cardDescription: CardDescription) {
-
     Column(
         verticalArrangement = Arrangement.Bottom,
         horizontalAlignment = Alignment.CenterHorizontally
@@ -146,43 +163,50 @@ fun CardTitleDescriptionImage(
     cardTitle: CardTitle,
     cardDescription: CardDescription
 ) {
-    //Drawable.createFromStream()
-    Box(contentAlignment = Alignment.Center) {
+    Card(
+        shape = RoundedCornerShape(8.dp),
+        elevation = 15.dp
+    ) {
         Image(
             painter = rememberImagePainter(data = cardImage.url,
                 builder = {
                     crossfade(true)
                 }),
             contentDescription = stringResource(id = R.string.image_description),
-            Modifier.size(width = cardImage.size.width.dp, height = cardImage.size.height.dp)
+            Modifier.size(cardImage.size.width.dp)//, height = cardImage.size.height.dp)
         )
         ViewCardTitleDescription(cardTitle = cardTitle, cardDescription = cardDescription)
     }
 }
 
 @Composable
-fun Greeting(name: String) {
-    Text(text = "Hello $name!")
+fun CardError() {
+    Card(
+        shape = RoundedCornerShape(8.dp), elevation = 15.dp,
+        modifier = Modifier.padding(start = 10.dp, end = 10.dp)
+    ) {
+        Text(text = "Random Error")
+    }
+}
+
+@ExperimentalAnimationApi
+@Composable
+fun CardLoading(isLoading: Boolean) {
+    AnimatedVisibility(visible = isLoading) {
+        CircularProgressIndicator()
+    }
 }
 
 // region
-@Preview(showBackground = true)
-@Composable
-fun DefaultPreview() {
-    TmobileTestTheme {
-        Greeting("Android")
-    }
-}
 
 @ExperimentalUnitApi
 @Preview
 @Composable
 fun DefaultCardTitle() {
     ViewCardTitle(
-        cardTitle = CardTitle(
-            "something",
-            CardAttribute("#ffffff", CardFont(20))
-        )
+        cardTitle =
+        "something",
+        cardAttribute = CardAttribute("#ffffff", CardFont(20))
     )
 }
 
@@ -210,7 +234,7 @@ fun DefaultCardTitleDescriptionImage() {
             CardSize(1170, 1498)
         ),
         CardTitle(
-            "something",
+            "This is the title of the moview",
             CardAttribute("#ffffff", CardFont(20))
         ),
         CardDescription(
@@ -233,77 +257,63 @@ fun DefaultTestImage() {
     )
 }
 
-@Composable
-fun HelloContent(name: String, onNameChange: (String) -> Unit) {
-    Column(modifier = Modifier.padding(16.dp)) {
-        if (name.isNotEmpty()) {
-            Text(
-                text = "Hello, $name!",
-                modifier = Modifier.padding(bottom = 8.dp),
-                style = MaterialTheme.typography.h5
-            )
-        }
-        OutlinedTextField(
-            value = name,
-            onValueChange = onNameChange,
-            label = { Text("Name") }
-        )
-    }
-}
-
-@Composable
-fun HelloScreen() {
-    var name by remember { mutableStateOf("Tony") }
-    HelloContent(name) {
-        name = it
-    }
-}
-
-
-@Preview
-@Composable
-fun Testing() {
-    HelloScreen()
-}
-
 @ExperimentalUnitApi
 @Preview
 @Composable
 fun DefaultListCards() {
     ListCards(
         PageResponse(
-            listOf(
-                CardsResponse(
-                    "text", Card(
-                        "Hello, Welcome to App!",
-                        CardAttribute("#262626", CardFont(30)), null, null, null
-                    )
-                ),
-                CardsResponse(
-                    "title_description", Card(
-                        null,
-                        null,
-                        CardTitle("Check out our App every week for exciting offers.",
-                            CardAttribute("#262626", CardFont(24))),
-                        CardDescription("Offers available every week!",
-                            CardAttribute("#262626", CardFont(18))),
-                        null
-                    )
-                ),
-                CardsResponse(
-                    "image_title_description", Card(
-                        null,
-                        null,
-                        CardTitle("Movie ticket to Dark Phoenix!",
-                            CardAttribute("#FFFFFF", CardFont(18))),
-                        CardDescription("Tap to see offer dates and descriptions.",
-                            CardAttribute("#FFFFFF", CardFont(12))),
-                        CardImage("https://qaevolution.blob.core.windows.net/assets/ios/3x/Featured@4.76x.png",
-                            CardSize(1170, 1498))
+            PageCards(
+                listOf(
+                    CardsResponse(
+                        "text", Card(
+                            value = "Hello, Welcome to App!",
+                            attributes = CardAttribute("#262626", CardFont(30)), null, null, null
+                        )
+                    ),
+                    CardsResponse(
+                        "title_description", Card(
+                            null,
+                            null,
+                            title = CardTitle(
+                                "Check out our App every week for exciting offers.",
+                                CardAttribute("#262626", CardFont(24))
+                            ),
+                            description = CardDescription(
+                                "Offers available every week!",
+                                CardAttribute("#262626", CardFont(18))
+                            ),
+                            null
+                        )
+                    ),
+                    CardsResponse(
+                        "image_title_description", Card(
+                            null,
+                            null,
+                            title = CardTitle(
+                                "Movie ticket to Dark Phoenix!",
+                                CardAttribute("#FFFFFF", CardFont(18))
+                            ),
+                            description = CardDescription(
+                                "Tap to see offer dates and descriptions.",
+                                CardAttribute("#FFFFFF", CardFont(12))
+                            ),
+                            image = CardImage(
+                                "https://qaevolution.blob.core.windows.net/assets/ios/3x/Featured@4.76x.png",
+                                CardSize(1170, 1498)
+                            )
+                        )
                     )
                 )
             )
-        )
+        ).page.cards
     )
+}
+
+@ExperimentalAnimationApi
+@Preview(showSystemUi = true, heightDp = 30, widthDp = 30)
+@Composable
+fun DefaultLoading() {
+    CardLoading(isLoading = true)
 }
 // endregion

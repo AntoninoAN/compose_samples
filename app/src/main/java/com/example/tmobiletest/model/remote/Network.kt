@@ -15,7 +15,7 @@ object Network {
 
         val service = Retrofit.Builder()
 
-        return service.baseUrl("")
+        return service.baseUrl("https://private-8ce77c-tmobiletest.apiary-mock.com/")
             .client(client)
             .addConverterFactory(MoshiConverterFactory.create())
             .build()
