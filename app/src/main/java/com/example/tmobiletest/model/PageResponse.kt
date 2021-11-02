@@ -1,6 +1,10 @@
 package com.example.tmobiletest.model
 
 data class PageResponse(
+    val page: PageCards
+)
+
+data class PageCards(
     val cards: List<CardsResponse>
 )
 
@@ -46,7 +50,7 @@ data class CardSize(
     val height: Int
 )
 
-enum class CardTypes(value: String) {
+enum class CardTypes(val value: String) {
     TEXT("text"),
     TITLE_DESCRIPTION("title_description"),
     IMAGE_TITLE("image_title_description")
